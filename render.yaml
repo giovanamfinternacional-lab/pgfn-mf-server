@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: pgfn-mf-server
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PGFN_API_KEY
+        sync: false

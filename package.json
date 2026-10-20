@@ -1,0 +1,27 @@
+{
+  "name": "pgfn-cloud-server",
+  "version": "1.0.0",
+  "description": "Servidor cloud para consultar PGFN on-demand via Bitrix24",
+  "type": "module",
+  "main": "pgfn-local-server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node pgfn-local-server.js"
+  },
+  "keywords": [
+    "pgfn",
+    "bitrix24",
+    "divida-ativa",
+    "automacao"
+  ],
+  "author": "M&F Internacional",
+  "license": "MIT",
+  "dependencies": {
+    "@sparticuz/chromium": "^119.0.0",
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
+    "playwright-core": "^1.40.1"
+  }
+}
