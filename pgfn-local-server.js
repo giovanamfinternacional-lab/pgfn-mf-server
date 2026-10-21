@@ -77,24 +77,29 @@ cnpjMasked
 await page.click('button:has-text("FILTRAR DEVEDORES")');
 console.log(`[${company_id}] Aguardando resultado...`);
 
-// Espera ATIVA por sinais de resultado (em vez de tempo fixo),
-// com timeout maior para dar tempo da PGFN processar em ambiente de nuvem
+// Espera ATIVA por sinais de resultado (em vez de tempo fixo).
+// IMPORTANTE: a página NÃO navega — "FILTROS DE PESQUISA" e "Resultado da
+// Consulta" convivem lado a lado o tempo todo. O sinal real de que a
+// busca terminou é o aparecimento de "Filtros aplicados:" (chips com os
+// filtros usados) junto com ou "Nenhum devedor" (sem substring "encontrado",
+// pois o texto real é "Nenhum devedor foi encontrado...") ou "Detalhar"
+// ou uma contagem "N devedor(es)".
 try {
 await page.waitForFunction(
 () => {
 const text = document.body.innerText || "";
 return (
-text.includes("Nenhum devedor encontrado") ||
-text.includes("0 devedor") ||
+text.includes("Filtros aplicados") &&
+(text.includes("Nenhum devedor") ||
 text.includes("Detalhar") ||
-/\d+\s+devedor/i.test(text)
+/\d+\s+devedor/i.test(text))
 );
 },
-{ timeout: 25000 }
+{ timeout: 30000 }
 );
 } catch (waitErr) {
 console.log(
-`[${company_id}] Timeout aguardando sinais de resultado (25s), prosseguindo mesmo assim...`
+`[${company_id}] Timeout aguardando sinais de resultado (30s), prosseguindo mesmo assim...`
 );
 }
 
@@ -104,25 +109,21 @@ await page.waitForTimeout(2000);
 // Verificar resultado
 const bodyText = await page.innerText("body");
 
-if (
-bodyText.includes("Nenhum devedor encontrado") ||
-bodyText.includes("0 devedor")
-) {
+if (!bodyText.includes("Filtros aplicados")) {
+// A consulta nem chegou a ser aplicada — página não avançou
+console.log(
+`[${company_id}] ⚠ A página não confirmou a aplicação dos filtros (possível bloqueio ou lentidão)`
+);
+throw new Error(
+"A consulta não retornou resultado: a página não confirmou a aplicação dos filtros de busca (possível bloqueio de captcha ou lentidão da PGFN)."
+);
+} else if (bodyText.includes("Nenhum devedor")) {
 console.log(`[${company_id}] ✓ Sem dívida ativa`);
 resultado.semDivida = true;
 } else if (
-bodyText.includes("FILTROS DE PESQUISA") &&
-!bodyText.includes("Detalhar") &&
-!/\d+\s+devedor/i.test(bodyText)
+bodyText.includes("Detalhar") ||
+/\d+\s+devedor/i.test(bodyText)
 ) {
-// Ainda na tela de filtros/busca — a consulta não avançou
-console.log(
-`[${company_id}] ⚠ A página não avançou para os resultados (possível bloqueio ou lentidão)`
-);
-throw new Error(
-"A consulta não retornou resultado: a página permaneceu na tela de filtros/busca (possível bloqueio de captcha ou lentidão da PGFN)."
-);
-} else {
 console.log(`[${company_id}] Dívida encontrada, extraindo detalhes...`);
 resultado.semDivida = false;
 
@@ -147,6 +148,14 @@ console.log(`[${company_id}] Total encontrado: R$ ${totalMatch[1]}`);
 }
 
 resultado.detalhe = detalheText;
+} else {
+// Filtros aplicados mas nenhum sinal claro de resultado — situação ambígua
+console.log(
+`[${company_id}] ⚠ Filtros aplicados mas resultado ambíguo (sem "Nenhum devedor", "Detalhar" ou contagem)`
+);
+throw new Error(
+"A consulta aplicou os filtros, mas não foi possível identificar claramente o resultado (nem 'sem dívida' nem 'dívida encontrada')."
+);
 }
 } finally {
 await browser.close();
