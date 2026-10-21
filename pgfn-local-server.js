@@ -95,12 +95,32 @@ text.includes("Detalhar") ||
 /\d+\s+devedor/i.test(text))
 );
 },
-{ timeout: 30000 }
+{ timeout: 60000 }
 );
 } catch (waitErr) {
 console.log(
-`[${company_id}] Timeout aguardando sinais de resultado (30s), prosseguindo mesmo assim...`
+`[${company_id}] Timeout aguardando sinais de resultado (60s), tentando mais uma espera extra antes de desistir...`
 );
+// Ambiente de nuvem pode ser mais lento que o normal — dar mais uma
+// chance antes de desistir, em vez de capturar a página incompleta.
+try {
+await page.waitForFunction(
+() => {
+const text = document.body.innerText || "";
+return (
+text.includes("Filtros aplicados") &&
+(text.includes("Nenhum devedor") ||
+text.includes("Detalhar") ||
+/\d+\s+devedor/i.test(text))
+);
+},
+{ timeout: 30000 }
+);
+} catch (waitErr2) {
+console.log(
+`[${company_id}] Timeout final aguardando sinais de resultado (mais 30s), prosseguindo mesmo assim...`
+);
+}
 }
 
 // Pequena espera extra para garantir que a renderização terminou
